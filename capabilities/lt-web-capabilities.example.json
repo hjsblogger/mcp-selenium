@@ -1,0 +1,16 @@
+[
+  {
+    "browser": "chrome",
+    "platform": "Windows 11",
+    "browserVersion": "latest",
+    "build": "MCP Selenium Web Suite",
+    "name": "Chrome-Win11"
+  },
+  {
+    "browser": "firefox",
+    "platform": "macOS Sequoia",
+    "browserVersion": "latest",
+    "build": "MCP Selenium Web Suite",
+    "name": "Firefox-macOS"
+  }
+]
