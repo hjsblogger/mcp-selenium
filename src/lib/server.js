@@ -121,7 +121,11 @@ const accessibilitySnapshotScript = readFileSync(
 // Common schemas
 const browserOptionsSchema = z.object({
     headless: z.boolean().optional().describe("Run browser in headless mode"),
-    arguments: z.array(z.string()).optional().describe("Additional browser arguments")
+    arguments: z.array(z.string()).optional().describe("Additional browser arguments"),
+    platform: z.string().optional().describe("Target OS/platform for remote grid sessions, e.g. TestMu AI's platformName (ignored for local sessions)"),
+    browserVersion: z.string().optional().describe("Target browser version for remote grid sessions (ignored for local sessions)"),
+    build: z.string().optional().describe("Build name to group this session under on the remote grid dashboard (ignored for local sessions)"),
+    name: z.string().optional().describe("Session name shown on the remote grid dashboard (ignored for local sessions)")
 }).optional();
 
 const locatorSchema = {
@@ -146,6 +150,14 @@ server.registerTool(
             let driver;
             let warnings = [];
 
+            // Point at a remote Selenium Grid/cloud hub (e.g. TestMu AI) instead of
+            // launching a local browser when SELENIUM_REMOTE_URL is configured.
+            const remoteUrl = process.env.SELENIUM_REMOTE_URL;
+            const isRemote = Boolean(remoteUrl);
+            if (isRemote) {
+                builder = builder.usingServer(remoteUrl);
+            }
+
             // Enable BiDi websocket if the modules are available
             if (LogInspector && Network) {
                 // 'ignore' prevents BiDi from auto-dismissing alert/confirm/prompt dialogs,
@@ -153,10 +165,32 @@ server.registerTool(
                 builder = builder.withCapabilities({ 'webSocketUrl': true, 'unhandledPromptBehavior': 'ignore' });
             }
 
+            // TestMu AI (and similar grids) authenticate and configure sessions via a
+            // vendor capability block rather than the server URL. Capabilities.set()
+            // mutates the existing instance in place, so this won't clobber the BiDi
+            // capabilities set above (unlike calling .withCapabilities() again would).
+            if (process.env.LT_USERNAME && process.env.LT_ACCESS_KEY) {
+                builder.getCapabilities().set('LT:Options', {
+                    user: process.env.LT_USERNAME,
+                    accessKey: process.env.LT_ACCESS_KEY,
+                    platformName: options.platform,
+                    browserVersion: options.browserVersion,
+                    build: options.build ?? 'MCP Selenium',
+                    name: options.name ?? `${browser} session`,
+                    console: true,
+                    network: true,
+                    video: true
+                });
+            }
+
+            if (isRemote && options.headless) {
+                warnings.push('headless is ignored for remote/cloud grid sessions — the grid already runs browsers in its own datacenter.');
+            }
+
             switch (browser) {
                 case 'chrome': {
                     const chromeOptions = new ChromeOptions();
-                    if (options.headless) {
+                    if (options.headless && !isRemote) {
                         chromeOptions.addArguments('--headless=new');
                     }
                     if (options.arguments) {
@@ -170,7 +204,7 @@ server.registerTool(
                 }
                 case 'edge': {
                     const edgeOptions = new EdgeOptions();
-                    if (options.headless) {
+                    if (options.headless && !isRemote) {
                         edgeOptions.addArguments('--headless=new');
                     }
                     if (options.arguments) {
@@ -184,7 +218,7 @@ server.registerTool(
                 }
                 case 'firefox': {
                     const firefoxOptions = new FirefoxOptions();
-                    if (options.headless) {
+                    if (options.headless && !isRemote) {
                         firefoxOptions.addArguments('--headless');
                     }
                     if (options.arguments) {
@@ -198,7 +232,7 @@ server.registerTool(
                 }
                 case 'safari': {
                     const safariOptions = new SafariOptions();
-                    if (options.headless) {
+                    if (options.headless && !isRemote) {
                         warnings.push('Safari does not support headless mode — launching with visible window.');
                     }
                     if (options.arguments?.length) {
@@ -230,6 +264,14 @@ server.registerTool(
             let message = `Browser started with session_id: ${sessionId}`;
             if (state.bidi.get(sessionId)?.available) {
                 message += ' (BiDi enabled: console logs, JS errors, and network activity are being captured)';
+            }
+            if (isRemote && process.env.LT_USERNAME) {
+                try {
+                    const remoteSessionId = (await driver.getSession()).getId();
+                    message += `\nTestMu AI dashboard: https://automation.lambdatest.com/logs?sessionID=${remoteSessionId}`;
+                } catch (_) {
+                    // Remote session id not available — skip the dashboard link
+                }
             }
             if (warnings.length > 0) {
                 message += `\nWarnings: ${warnings.join(' ')}`;

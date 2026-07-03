@@ -65,6 +65,38 @@ Chrome, Firefox, Edge, and Safari.
 > **Safari note:** Requires macOS. Run `sudo safaridriver --enable` once and enable
 > "Allow Remote Automation" in Safari → Settings → Developer. No headless mode.
 
+## Remote / Cloud Grid (e.g. TestMu AI, formerly LambdaTest)
+
+By default `start_browser` launches a local browser on the machine running this server.
+To run sessions on a remote Selenium Grid or cloud provider instead, set these environment
+variables on the MCP server process:
+
+| Variable | Description |
+|----------|--------------|
+| `SELENIUM_REMOTE_URL` | Remote grid/hub URL, e.g. `https://hub.lambdatest.com/wd/hub` |
+| `LT_USERNAME` | TestMu AI username (enables the `LT:Options` capability block and dashboard link) |
+| `LT_ACCESS_KEY` | TestMu AI access key |
+
+```json
+{
+  "mcpServers": {
+    "selenium-cloud": {
+      "command": "npx",
+      "args": ["-y", "@angiejones/mcp-selenium@latest"],
+      "env": {
+        "SELENIUM_REMOTE_URL": "https://hub.lambdatest.com/wd/hub",
+        "LT_USERNAME": "${LT_USERNAME}",
+        "LT_ACCESS_KEY": "${LT_ACCESS_KEY}"
+      }
+    }
+  }
+}
+```
+
+`start_browser`'s `options` also accepts `platform`, `browserVersion`, `build`, and `name` to
+configure the remote session (ignored for local sessions). `headless` is ignored for remote
+sessions since the grid already runs browsers in its own datacenter.
+
 ---
 
 <details>
@@ -76,7 +108,7 @@ Launches a browser session.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | browser | string | Yes | `chrome`, `firefox`, `edge`, or `safari` |
-| options | object | No | `{ headless: boolean, arguments: string[] }` |
+| options | object | No | `{ headless: boolean, arguments: string[], platform: string, browserVersion: string, build: string, name: string }`. The last four apply only to remote/cloud grid sessions — see [Remote / Cloud Grid](#remote--cloud-grid-eg-testmu-ai-formerly-lambdatest). |
 
 ### navigate
 Navigates to a URL.
