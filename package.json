@@ -1,18 +1,29 @@
 {
-  "name": "@angiejones/mcp-selenium",
-  "version": "0.2.3",
-  "description": "Selenium WebDriver MCP Server",
+  "name": "@hjsblogger/mcp-selenium-testmuai",
+  "version": "0.1.1",
+  "description": "Selenium WebDriver MCP Server with TestMu AI Cloud Grid support",
   "type": "module",
   "main": "src/lib/server.js",
   "bin": {
-    "mcp-selenium": "./src/lib/server.js"
+    "mcp-selenium-testmuai": "./src/lib/server.js"
   },
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "node --test"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hjsblogger/mcp-selenium.git"
+  },
+  "homepage": "https://github.com/hjsblogger/mcp-selenium#readme",
+  "bugs": {
+    "url": "https://github.com/hjsblogger/mcp-selenium/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "selenium-webdriver": "^4.18.1"
