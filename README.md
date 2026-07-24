@@ -4,10 +4,6 @@ A Model Context Protocol (MCP) server for Selenium WebDriver — browser automat
 
 [![Watch the video](https://img.youtube.com/vi/mRV0N8hcgYA/sddefault.jpg)](https://youtu.be/mRV0N8hcgYA)
 
-<a href="https://glama.ai/mcp/servers/@angiejones/mcp-selenium">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@angiejones/mcp-selenium/badge" alt="Selenium MCP server" />
-</a>
-
 ## Setup
 
 <details open>
@@ -149,26 +145,26 @@ talking to the MCP server — the prompt below describes the scenario, and the a
 and executed it end to end.
 
 <p>
-  <img width="1441" height="702" alt="smoke-test-1" src="https://github.com/user-attachments/assets/7a319a06-353f-46df-8c09-3ff233445131" />
+  <img width="1441" height="702" alt="smoke-test-1" src="https://raw.githubusercontent.com/hjsblogger/mcp-selenium/92894876460c19980202ad356c4eae2275b78c06/docs/images/testmu-smoke-test-prompt.png" />
 
 </p>
 
 Running it against a live TestMu AI Chrome session:
 
 <p>
-  <img width="1470" height="251" alt="smoke-test-2" src="https://github.com/user-attachments/assets/1a2f8a1e-b5a7-44d8-9af8-8cf461515b6a" />
+  <img width="1470" height="251" alt="smoke-test-2" src="https://raw.githubusercontent.com/hjsblogger/mcp-selenium/92894876460c19980202ad356c4eae2275b78c06/docs/images/testmu-smoke-test-summary.png" />
 
 </p>
 
 <p>
-  <img width="1129" height="238" alt="smoke-test-3" src="https://github.com/user-attachments/assets/f27f30b5-7bf2-4728-a8e2-c95daf0a6691" />
+  <img width="1129" height="238" alt="smoke-test-3" src="https://raw.githubusercontent.com/hjsblogger/mcp-selenium/92894876460c19980202ad356c4eae2275b78c06/docs/images/testmu-smoke-test-run.png" />
 
 </p>
 
 The resulting session on the TestMu AI dashboard, with the recorded video and full command log:
 
 <p>
-  <img width="1492" height="729" alt="smoke-test-lambdatest-dashboard" src="https://github.com/user-attachments/assets/4f46941f-df6c-486f-959a-ce69a05e1ac6" />
+  <img width="1492" height="729" alt="smoke-test-lambdatest-dashboard" src="https://raw.githubusercontent.com/hjsblogger/mcp-selenium/92894876460c19980202ad356c4eae2275b78c06/docs/images/testmu-dashboard-passed.png" />
 
 </p>
 
