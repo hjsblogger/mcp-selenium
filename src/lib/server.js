@@ -600,7 +600,7 @@ server.registerTool(
     {
         description: "manages browser windows and tabs",
         inputSchema: {
-        action: z.enum(["list", "switch", "switch_latest", "close"]).describe("Window action to perform"),
+        action: z.enum(["list", "switch", "switch_latest", "close", "maximize"]).describe("Window action to perform"),
         handle: z.string().optional().describe("Window handle (required for switch)")
     }
     },
@@ -608,6 +608,10 @@ server.registerTool(
         try {
             const driver = getDriver();
             switch (action) {
+                case 'maximize': {
+                    await driver.manage().window().maximize();
+                    return { content: [{ type: 'text', text: 'Window maximized' }] };
+                }
                 case 'list': {
                     const handles = await driver.getAllWindowHandles();
                     const current = await driver.getWindowHandle();
