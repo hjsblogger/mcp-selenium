@@ -67,6 +67,15 @@ Chrome, Firefox, Edge, and Safari.
 
 ## Remote / Cloud Grid (e.g. TestMu AI, formerly LambdaTest)
 
+This server extends the base Selenium MCP implementation with first-class support for
+running sessions on **TestMu AI Cloud Grid** (formerly LambdaTest). Sessions started this way
+get TestMu AI's `LT:Options` capability block applied automatically, plus a dashboard link
+returned in the tool response.
+
+> This support is not in the upstream `@angiejones/mcp-selenium` package — use
+> [`@hjsblogger/mcp-selenium-testmuai`](https://www.npmjs.com/package/@hjsblogger/mcp-selenium-testmuai)
+> (this fork) for the config below.
+
 By default `start_browser` launches a local browser on the machine running this server.
 To run sessions on a remote Selenium Grid or cloud provider instead, set these environment
 variables on the MCP server process:
@@ -82,7 +91,7 @@ variables on the MCP server process:
   "mcpServers": {
     "selenium-cloud": {
       "command": "npx",
-      "args": ["-y", "@angiejones/mcp-selenium@latest"],
+      "args": ["-y", "@hjsblogger/mcp-selenium-testmuai@latest"],
       "env": {
         "SELENIUM_REMOTE_URL": "https://hub.lambdatest.com/wd/hub",
         "LT_USERNAME": "${LT_USERNAME}",
@@ -96,6 +105,72 @@ variables on the MCP server process:
 `start_browser`'s `options` also accepts `platform`, `browserVersion`, `build`, and `name` to
 configure the remote session (ignored for local sessions). `headless` is ignored for remote
 sessions since the grid already runs browsers in its own datacenter.
+
+## Smoke Test on Remote / Cloud Grid (TestMu AI)
+
+Two runnable examples in [`examples/`](./examples) drive a full user journey — search, add to
+cart, checkout on an ecommerce demo site — against TestMu AI Cloud Grid:
+
+### `testmu-mcp-smoke-test.mjs`
+
+Drives the flow through the **actual MCP tool-call protocol** (via the `McpClient` test
+helper), so a pass verifies the MCP tools themselves, not just Selenium/TestMu AI in
+isolation. Runs a single Chrome / Windows 11 session.
+
+```bash
+SELENIUM_REMOTE_URL=https://hub.lambdatest.com/wd/hub \
+LT_USERNAME=your_username \
+LT_ACCESS_KEY=your_access_key \
+node examples/testmu-mcp-smoke-test.mjs
+```
+
+### `local-mcp-smoke-test.mjs`
+
+Drives the same flow directly with `selenium-webdriver` (bypassing the MCP layer) across
+multiple browser/platform combinations in parallel, as defined in
+[`capabilities/lt-web-capabilities.example.json`](./capabilities/lt-web-capabilities.example.json)
+(Chrome on Windows 11 and Firefox on macOS Sequoia by default).
+
+```bash
+SELENIUM_REMOTE_URL=https://hub.lambdatest.com/wd/hub \
+LT_USERNAME=your_username \
+LT_ACCESS_KEY=your_access_key \
+node examples/local-mcp-smoke-test.mjs
+```
+
+Both scripts report pass/fail back to TestMu AI via the `lambda-hook` `setTestStatus` call and
+print a dashboard link (`https://automation.lambdatest.com/logs?sessionID=...`) for viewing the
+recorded session.
+
+### Example run
+
+`testmu-mcp-smoke-test.mjs` was itself authored and run through an AI coding agent (Claude Code)
+talking to the MCP server — the prompt below describes the scenario, and the agent implemented
+and executed it end to end.
+
+<p>
+  <img width="1441" height="702" alt="smoke-test-1" src="https://github.com/user-attachments/assets/7a319a06-353f-46df-8c09-3ff233445131" />
+
+</p>
+
+Running it against a live TestMu AI Chrome session:
+
+<p>
+  <img width="1470" height="251" alt="smoke-test-2" src="https://github.com/user-attachments/assets/1a2f8a1e-b5a7-44d8-9af8-8cf461515b6a" />
+
+</p>
+
+<p>
+  <img width="1129" height="238" alt="smoke-test-3" src="https://github.com/user-attachments/assets/f27f30b5-7bf2-4728-a8e2-c95daf0a6691" />
+
+</p>
+
+The resulting session on the TestMu AI dashboard, with the recorded video and full command log:
+
+<p>
+  <img width="1492" height="729" alt="smoke-test-lambdatest-dashboard" src="https://github.com/user-attachments/assets/4f46941f-df6c-486f-959a-ce69a05e1ac6" />
+
+</p>
 
 ---
 
