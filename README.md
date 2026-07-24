@@ -108,7 +108,7 @@ sessions since the grid already runs browsers in its own datacenter.
 
 ## Smoke Test on Remote / Cloud Grid (TestMu AI)
 
-Two runnable examples in [`examples/`](./examples) drive a full user journey — search, add to
+Two runnable examples in [`examples/`](https://github.com/hjsblogger/mcp-selenium/tree/testmu-ai-selenium-mcp/examples) drive a full user journey — search, add to
 cart, checkout on an ecommerce demo site — against TestMu AI Cloud Grid:
 
 ### `testmu-mcp-smoke-test.mjs`
@@ -128,7 +128,7 @@ node examples/testmu-mcp-smoke-test.mjs
 
 Drives the same flow directly with `selenium-webdriver` (bypassing the MCP layer) across
 multiple browser/platform combinations in parallel, as defined in
-[`capabilities/lt-web-capabilities.example.json`](./capabilities/lt-web-capabilities.example.json)
+[`capabilities/lt-web-capabilities.example.json`](https://github.com/hjsblogger/mcp-selenium/blob/testmu-ai-selenium-mcp/capabilities/lt-web-capabilities.example.json)
 (Chrome on Windows 11 and Firefox on macOS Sequoia by default).
 
 ```bash
