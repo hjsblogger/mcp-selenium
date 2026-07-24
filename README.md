@@ -196,7 +196,7 @@ Manages browser windows and tabs.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| action | string | Yes | `list`, `switch`, `switch_latest`, or `close` |
+| action | string | Yes | `list`, `switch`, `switch_latest`, `close`, or `maximize` |
 | handle | string | No | Window handle (required for `switch`) |
 
 ### frame
