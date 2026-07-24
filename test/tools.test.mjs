@@ -135,6 +135,19 @@ describe('tools', () => {
       assert.equal(data.current, data.all[0]);
     });
 
+    it('window maximize resizes the window without erroring', async () => {
+      const before = await client.callTool('execute_script', { script: 'return { w: window.outerWidth, h: window.outerHeight };' });
+      const beforeSize = JSON.parse(getResponseText(before));
+
+      const result = await client.callTool('window', { action: 'maximize' });
+      assert.ok(!result.isError, `Expected success, got: ${getResponseText(result)}`);
+      assert.equal(getResponseText(result), 'Window maximized');
+
+      const after = await client.callTool('execute_script', { script: 'return { w: window.outerWidth, h: window.outerHeight };' });
+      const afterSize = JSON.parse(getResponseText(after));
+      assert.ok(afterSize.w >= beforeSize.w && afterSize.h >= beforeSize.h, `Expected window to grow or stay the same, got ${JSON.stringify(beforeSize)} -> ${JSON.stringify(afterSize)}`);
+    });
+
     it('window switch_latest after opening new tab', async () => {
       await client.callTool('execute_script', { script: "window.open('about:blank', '_blank');" });
 
