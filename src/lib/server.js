@@ -41,11 +41,24 @@ const state = {
     bidi: new Map()
 };
 
+// TestMu AI / any remote Selenium Grid is enabled by pointing SELENIUM_REMOTE_URL at it
+// (see start_browser below). Multi-session targeting via an explicit session_id is only
+// exposed when running in this mode — local usage stays exactly as it was.
+const isRemoteMode = Boolean(process.env.SELENIUM_REMOTE_URL);
+
+// Optional input param spread into a tool's inputSchema, only in remote mode.
+const sessionIdParam = isRemoteMode
+    ? { session_id: z.string().optional().describe("Session ID to target (from start_browser's response). If omitted, uses the current/default session.") }
+    : {};
+
 // Helper functions
-const getDriver = () => {
-    const driver = state.drivers.get(state.currentSession);
+const resolveSessionId = (sessionId) => (isRemoteMode && sessionId) ? sessionId : state.currentSession;
+
+const getDriver = (sessionId) => {
+    const targetSessionId = resolveSessionId(sessionId);
+    const driver = state.drivers.get(targetSessionId);
     if (!driver) {
-        throw new Error('No active browser session');
+        throw new Error(sessionId ? `No active browser session with session_id: ${sessionId}` : 'No active browser session');
     }
     return driver;
 };
@@ -294,12 +307,13 @@ server.registerTool(
     {
         description: "navigates to a URL",
         inputSchema: {
-        url: z.string().describe("URL to navigate to")
+        url: z.string().describe("URL to navigate to"),
+        ...sessionIdParam
     }
     },
-    async ({ url }) => {
+    async ({ url, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             await driver.get(url);
             return {
                 content: [{ type: 'text', text: `Navigated to ${url}` }]
@@ -320,12 +334,13 @@ server.registerTool(
         description: "performs a mouse action on an element",
         inputSchema: {
         action: z.enum(["click", "doubleclick", "rightclick", "hover"]).describe("Mouse action to perform"),
-        ...locatorSchema
+        ...locatorSchema,
+        ...sessionIdParam
     }
     },
-    async ({ action, by, value, timeout = 10000 }) => {
+    async ({ action, by, value, timeout = 10000, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const locator = getLocator(by, value);
             const element = await driver.wait(until.elementLocated(locator), timeout);
 
@@ -366,12 +381,13 @@ server.registerTool(
         description: "sends keys to an element, aka typing. Clears the field first.",
         inputSchema: {
         ...locatorSchema,
-        text: z.string().describe("Text to enter into the element")
+        text: z.string().describe("Text to enter into the element"),
+        ...sessionIdParam
     }
     },
-    async ({ by, value, text, timeout = 10000 }) => {
+    async ({ by, value, text, timeout = 10000, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const locator = getLocator(by, value);
             const element = await driver.wait(until.elementLocated(locator), timeout);
             await element.clear();
@@ -393,12 +409,13 @@ server.registerTool(
     {
         description: "gets the text content of an element",
         inputSchema: {
-        ...locatorSchema
+        ...locatorSchema,
+        ...sessionIdParam
     }
     },
-    async ({ by, value, timeout = 10000 }) => {
+    async ({ by, value, timeout = 10000, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const locator = getLocator(by, value);
             const element = await driver.wait(until.elementLocated(locator), timeout);
             const text = await element.getText();
@@ -419,12 +436,13 @@ server.registerTool(
     {
         description: "simulates pressing a keyboard key",
         inputSchema: {
-        key: z.string().describe("Key to press (e.g., 'Enter', 'Tab', 'a', etc.)")
+        key: z.string().describe("Key to press (e.g., 'Enter', 'Tab', 'a', etc.)"),
+        ...sessionIdParam
     }
     },
-    async ({ key }) => {
+    async ({ key, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const resolvedKey = key.length === 1
                 ? key
                 : Key[key.toUpperCase().replace(/ /g, '_')] ?? null;
@@ -454,12 +472,13 @@ server.registerTool(
         description: "uploads a file using a file input element",
         inputSchema: {
         ...locatorSchema,
-        filePath: z.string().describe("Absolute path to the file to upload")
+        filePath: z.string().describe("Absolute path to the file to upload"),
+        ...sessionIdParam
     }
     },
-    async ({ by, value, filePath, timeout = 10000 }) => {
+    async ({ by, value, filePath, timeout = 10000, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const locator = getLocator(by, value);
             const element = await driver.wait(until.elementLocated(locator), timeout);
             await element.sendKeys(filePath);
@@ -480,12 +499,13 @@ server.registerTool(
     {
         description: "captures a screenshot of the current page. Prefer using the accessibility://current resource for understanding page content. Use get_element_text, get_element_attribute, or execute_script to verify element state. Only use screenshots when visual layout or styling needs to be verified.",
         inputSchema: {
-        outputPath: z.string().optional().describe("Optional path where to save the screenshot. If not provided, returns an image/png content block.")
+        outputPath: z.string().optional().describe("Optional path where to save the screenshot. If not provided, returns an image/png content block."),
+        ...sessionIdParam
     }
     },
-    async ({ outputPath }) => {
+    async ({ outputPath, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const screenshot = await driver.takeScreenshot();
             if (outputPath) {
                 const fs = await import('fs');
@@ -513,18 +533,20 @@ server.registerTool(
     "close_session",
     {
         description: "closes the current browser session",
-        inputSchema: {}
+        inputSchema: { ...sessionIdParam }
     },
-    async () => {
+    async ({ session_id } = {}) => {
         try {
-            const driver = getDriver();
-            const sessionId = state.currentSession;
+            const driver = getDriver(session_id);
+            const sessionId = resolveSessionId(session_id);
             try {
                 await driver.quit();
             } finally {
                 state.drivers.delete(sessionId);
                 state.bidi.delete(sessionId);
-                state.currentSession = null;
+                if (state.currentSession === sessionId) {
+                    state.currentSession = null;
+                }
             }
             return {
                 content: [{ type: 'text', text: `Browser session ${sessionId} closed` }]
@@ -545,12 +567,13 @@ server.registerTool(
         description: "gets the value of an attribute on an element. Use this to verify element state. Prefer this over screenshots for validation.",
         inputSchema: {
         ...locatorSchema,
-        attribute: z.string().describe("Name of the attribute to get (e.g., 'href', 'value', 'class')")
+        attribute: z.string().describe("Name of the attribute to get (e.g., 'href', 'value', 'class')"),
+        ...sessionIdParam
     }
     },
-    async ({ by, value, attribute, timeout = 10000 }) => {
+    async ({ by, value, attribute, timeout = 10000, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const locator = getLocator(by, value);
             const element = await driver.wait(until.elementLocated(locator), timeout);
             const attrValue = await element.getAttribute(attribute);
@@ -572,12 +595,13 @@ server.registerTool(
         description: "executes JavaScript in the browser and returns the result. Use for advanced interactions not covered by other tools (e.g., drag and drop, scrolling, reading computed styles, manipulating the DOM directly). Also useful for batch-reading multiple element values/states in a single call instead of multiple get_element_attribute calls.",
         inputSchema: {
         script: z.string().describe("JavaScript code to execute in the browser"),
-        args: z.array(z.any()).optional().describe("Optional arguments to pass to the script (accessible via arguments[0], arguments[1], etc.)")
+        args: z.array(z.any()).optional().describe("Optional arguments to pass to the script (accessible via arguments[0], arguments[1], etc.)"),
+        ...sessionIdParam
     }
     },
-    async ({ script, args = [] }) => {
+    async ({ script, args = [], session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const result = await driver.executeScript(script, ...args);
             const text = result === undefined || result === null
                 ? 'Script executed (no return value)'
@@ -601,12 +625,13 @@ server.registerTool(
         description: "manages browser windows and tabs",
         inputSchema: {
         action: z.enum(["list", "switch", "switch_latest", "close", "maximize"]).describe("Window action to perform"),
-        handle: z.string().optional().describe("Window handle (required for switch)")
+        handle: z.string().optional().describe("Window handle (required for switch)"),
+        ...sessionIdParam
     }
     },
-    async ({ action, handle }) => {
+    async ({ action, handle, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             switch (action) {
                 case 'maximize': {
                     await driver.manage().window().maximize();
@@ -637,11 +662,13 @@ server.registerTool(
                         await driver.switchTo().window(handles[0]);
                         return { content: [{ type: 'text', text: `Window closed. Switched to: ${handles[0]}` }] };
                     }
-                    const sessionId = state.currentSession;
+                    const sessionId = resolveSessionId(session_id);
                     try { await driver.quit(); } catch (_) { /* ignore */ }
                     state.drivers.delete(sessionId);
                     state.bidi.delete(sessionId);
-                    state.currentSession = null;
+                    if (state.currentSession === sessionId) {
+                        state.currentSession = null;
+                    }
                     return { content: [{ type: 'text', text: 'Last window closed. Session ended.' }] };
                 }
                 default:
@@ -666,12 +693,13 @@ server.registerTool(
         by: z.enum(["id", "css", "xpath", "name", "tag", "class"]).optional().describe("Locator strategy for frame element"),
         value: z.string().optional().describe("Value for the locator strategy"),
         index: z.number().optional().describe("Frame index (0-based)"),
-        timeout: z.number().optional().describe("Max wait in ms")
+        timeout: z.number().optional().describe("Max wait in ms"),
+        ...sessionIdParam
     }
     },
-    async ({ action, by, value, index, timeout = 10000 }) => {
+    async ({ action, by, value, index, timeout = 10000, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             if (action === 'default') {
                 await driver.switchTo().defaultContent();
                 return { content: [{ type: 'text', text: 'Switched to default content' }] };
@@ -704,12 +732,13 @@ server.registerTool(
         inputSchema: {
         action: z.enum(["accept", "dismiss", "get_text", "send_text"]).describe("Action to perform on the alert"),
         text: z.string().optional().describe("Text to send (required for send_text)"),
-        timeout: z.number().optional().describe("Max wait in ms")
+        timeout: z.number().optional().describe("Max wait in ms"),
+        ...sessionIdParam
     }
     },
-    async ({ action, text, timeout = 5000 }) => {
+    async ({ action, text, timeout = 5000, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             await driver.wait(until.alertIsPresent(), timeout);
             const alertObj = await driver.switchTo().alert();
             switch (action) {
@@ -754,12 +783,13 @@ server.registerTool(
         path: z.string().optional().describe("Path the cookie is visible to"),
         secure: z.boolean().optional().describe("Whether the cookie is a secure cookie"),
         httpOnly: z.boolean().optional().describe("Whether the cookie is HTTP only"),
-        expiry: z.number().optional().describe("Expiry date of the cookie as a Unix timestamp (seconds since epoch)")
+        expiry: z.number().optional().describe("Expiry date of the cookie as a Unix timestamp (seconds since epoch)"),
+        ...sessionIdParam
     }
     },
-    async ({ name, value, domain, path, secure, httpOnly, expiry }) => {
+    async ({ name, value, domain, path, secure, httpOnly, expiry, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             const cookie = { name, value };
             if (domain !== undefined) cookie.domain = domain;
             if (path !== undefined) cookie.path = path;
@@ -784,12 +814,13 @@ server.registerTool(
     {
         description: "retrieves cookies from the current browser session. Returns all cookies or a specific cookie by name.",
         inputSchema: {
-        name: z.string().optional().describe("Name of a specific cookie to retrieve. If omitted, all cookies are returned.")
+        name: z.string().optional().describe("Name of a specific cookie to retrieve. If omitted, all cookies are returned."),
+        ...sessionIdParam
     }
     },
-    async ({ name }) => {
+    async ({ name, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             if (name) {
                 try {
                     const cookie = await driver.manage().getCookie(name);
@@ -831,12 +862,13 @@ server.registerTool(
     {
         description: "deletes cookies from the current browser session. Can delete a specific cookie by name or all cookies.",
         inputSchema: {
-        name: z.string().optional().describe("Name of the cookie to delete. If omitted, all cookies are deleted.")
+        name: z.string().optional().describe("Name of the cookie to delete. If omitted, all cookies are deleted."),
+        ...sessionIdParam
     }
     },
-    async ({ name }) => {
+    async ({ name, session_id }) => {
         try {
-            const driver = getDriver();
+            const driver = getDriver(session_id);
             if (name) {
                 await driver.manage().deleteCookie(name);
                 return {
@@ -870,13 +902,14 @@ server.registerTool(
         description: "retrieves browser diagnostics (console logs, JS errors, or network activity) captured via WebDriver BiDi",
         inputSchema: {
         type: z.enum(["console", "errors", "network"]).describe("Type of diagnostic data to retrieve"),
-        clear: z.boolean().optional().describe("Clear after returning (default: false)")
+        clear: z.boolean().optional().describe("Clear after returning (default: false)"),
+        ...sessionIdParam
     }
     },
-    async ({ type, clear = false }) => {
+    async ({ type, clear = false, session_id }) => {
         try {
-            getDriver();
-            const bidi = state.bidi.get(state.currentSession);
+            getDriver(session_id);
+            const bidi = state.bidi.get(resolveSessionId(session_id));
             if (!bidi?.available) {
                 return { content: [{ type: 'text', text: 'Diagnostics not available (BiDi not supported by this browser/driver)' }] };
             }
